@@ -3,7 +3,7 @@
 Code Author:   Dave Smith <dizzyd@jabber.org>
 Doc Author:    Peter Saint-Andre <stpeter@jabber.org>
 Doc Version:   1.0
-Last Updated:  2004-05-26
+Last Updated:  2004-07-23
 
 
 1. INTRODUCTION
@@ -112,7 +112,9 @@ The secret can be anything you like.
 
 4.2 Jabberd 2.x
 
-To follow.
+With jabberd 2.x, you can simply connect to the router's IP 
+address with the "legacy" password that is configured in the
+router.xml file.
 
 5. CONFIGURING PROXY65
 
