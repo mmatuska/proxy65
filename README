@@ -3,7 +3,7 @@
 Code Author:   Dave Smith <dizzyd@jabber.org>
 Doc Author:    Peter Saint-Andre <stpeter@jabber.org>
 Doc Version:   1.0
-Last Updated:  2004-05-20
+Last Updated:  2004-05-26
 
 
 1. INTRODUCTION
@@ -54,13 +54,17 @@ If you want to install Proxy65 somewhere else, refer to:
   http://www.python.org/doc/current/inst/inst.html
 
 
-4. CONFIGURING PROXY65
+4. CONFIGURING THE SERVER
 
-Next, update your server configuration. In this README, we use
-a jabberd 1.4 XML file as our example, but you should be to add 
-the correct configuration to other servers as well (refer to the 
-documentation for your server of choice; remember that it must
-support the Jabber component protocol documented in JEP-0114).
+Next, update your server configuration. In this README, we cover
+configuration for the jabberd 1.4.x and jabberd 2.x servers, but
+you should be to add the correct configuration to other servers,
+too, as long as they support the Jabber component protocol that is
+specified in JEP-0114: <http://www.jabber.org/jeps/jep-0114.html>
+(refer to the documentation for your server of choice regarding its
+support for this protocol).
+
+4.1 Jabberd 1.4.x
 
 For jabberd 1.4, add an appropriate service line to the <browse> 
 section of your jabber.xml file's JSM config:
@@ -93,6 +97,11 @@ README for details):
 
 The 'id' SHOULD be the same as the 'jid' you provided above.
 
+If you are behind a NAT, do not provide an IP address; instead,
+the <ip> element needs to be a hostname that you can set in 
+different ways inside and outside the firewalled area. This makes
+it possible for entities inside and outside to access the proxy.
+
 The port number can be anything you like (usually some high port
 not registered with the IANA is a good idea). The port number you 
 provide is the one over which server-to-component communications 
@@ -100,6 +109,12 @@ will occur, not the port used by clients when they connect to the
 bytestreams service.
 
 The secret can be anything you like. 
+
+4.2 Jabberd 2.x
+
+To follow.
+
+5. CONFIGURING PROXY65
 
 The next step is to create a "Twisted Application Pickle", commonly
 referred to as a TAP. A TAP is a file that holds configuration 
@@ -168,7 +183,7 @@ You should now see a proxy.tap file in the directory where you
 built the component.
 
 
-5. RUNNING PROXY65
+6. RUNNING PROXY65
 
 Now start your Jabber server, e.g., by running:
 
@@ -188,7 +203,7 @@ Most server admins will want to run 'twistd -f proxy65.tap'.)
 And voila! Proxy65 is running.
 
 
-6. USAGE
+7. USAGE
 
 At present, the main use for Proxy65 is file transfer between 
 Jabber clients that are advanced enough to support the protocol
@@ -209,7 +224,7 @@ as voice over IP using a relatively light protocol such as Speex).
 Look for more creative uses of Proxy65 in the future.
 
 
-7. GETTING HELP
+8. GETTING HELP
 
 For help with Twisted, type 'man twistd'.
 
@@ -218,7 +233,7 @@ at the top of this README (use Jabber, you'll receive a faster
 reply!), or join the <jdev@conference.jabber.org> chatroom.
 
 
-8. REQUESTING FEATURES AND REPORTING BUGS
+9. REQUESTING FEATURES AND REPORTING BUGS
 
 Follow the links at the project homepage:
 
