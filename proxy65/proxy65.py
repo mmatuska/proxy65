@@ -23,108 +23,24 @@
 ##============================================================================
 
 from twisted.internet import protocol, reactor
-from hemp import jabber
-import ConfigParser
+from twisted.python import usage
+from twisted.protocols.jabber import component
+import sys
 import socks5
 
-_config = None
-_component = None
-_proxy = None
-_pendingConns = {}
-_activeConns = {}
-
-def onStreamAuthd(obj):
-    global _proxy
-    # Setup socks5 proxy class
-    factory = protocol.Factory()
-    factory.protocol = SOCKSv5Proxy
-    _proxy = reactor.listenTCP(_config.getint("proxy", "port"),
-                               factory,
-                               interface = _config.get("proxy", "host"))
-
-def onStreamEnd(obj):
-    # Shutdown listening socket
-    if _proxy != None:
-        _proxy.loseConnection()
-
-def onDiscoInfo(iq):
-    iq.swapAttribs("to", "from")
-    iq["type"] = "result"
-    iq.query.children = []
-    i = iq.query.addElement("identity")
-    i["category"] = "proxy"
-    i["type"] = "bytestreams"
-    i["name"] = "JEP-65 Proxy"
-    iq.query.addElement("feature")["var"] = "http://jabber.org/protocol/bytestreams"
-    _component.send(iq)
-
-def onIQGet(iq):
-    iq.swapAttribs("to", "from")
-    iq["type"] = "result"
-    iq.query.children = []
-    s = iq.query.addElement("streamhost")
-    s["jid"] = _config.get("jabber", "id")
-    s["host"] = _config.get("proxy", "host")
-    s["port"] = _config.get("proxy", "port")
-    _component.send(iq)
+JEP65_GET      = "/iq[@type='get']/query[@xmlns='http://jabber.org/protocol/bytestreams']"
+JEP65_ACTIVATE = "/iq[@type='set']/query[@xmlns='http://jabber.org/protocol/bytestreams']/activate"
+DISCO_GET      = "/iq[@type='get']/query[@xmlns='http://jabber.org/protocol/disco#info']"
 
 
 def hashSID(sid, initiator, target):
     import sha
     return sha.new("%s%s%s" % (sid, initiator, target)).hexdigest()
 
-def onIQActivate(iq):
-    sid = hashSID(iq.query["sid"], iq["from"], str(iq.query.activate))
-
-    if sid in _pendingConns:
-        # Get list of objects for this sid
-        olist = _pendingConns[sid]
-
-        # Remove sid from pending
-        del _pendingConns[sid]
-
-        # Ensure there are the correct # of participants
-        if len(olist) != 2:
-            # Send an error
-            iq.swapAttribs("to", "from")
-            iq["type"] = "error"
-            iq.query.children = []
-            iq.query.addElement("error")["code"] = "405"
-            _component.send(iq)
-            # Close all connected
-            for c in olist: c.transport.loseConnection()
-            return
-
-        # Send iq result
-        iq.swapAttribs("to", "from")
-        iq["type"] = "result"
-        iq.query.children = []
-        _component.send(iq)
-
-        # Remove sid from pending and mark as active
-        assert sid not in _activeConns
-        _activeConns[sid] = None
-        
-        # Complete connection
-        olist[0].peersock = olist[1]
-        olist[0].transport.registerProducer(olist[1], 0)
-        olist[1].peersock = olist[0]
-        olist[1].transport.registerProducer(olist[0], 0)
-        olist[0].transport.startReading()
-        olist[1].transport.startReading()
-
-        print "Activated"
-    else:
-        # Send an error
-        iq.swapAttribs("to", "from")
-        iq["type"] = "error"
-        iq.query.children = []
-        iq.query.addElement("error")["code"] = "404"
-        _component.send(iq)
-
-class SOCKSv5Proxy(socks5.SOCKSv5):
-    def __init__(self):
+class JEP65Proxy(socks5.SOCKSv5):
+    def __init__(self, service):
         socks5.SOCKSv5.__init__(self)
+        self.service = service
         self.supportedAuthMechs = [socks5.AUTHMECH_ANON]
         self.supportedAddrs = [socks5.ADDR_DOMAINNAME]
         self.enabledCommands = [socks5.CMD_CONNECT]
@@ -146,7 +62,6 @@ class SOCKSv5Proxy(socks5.SOCKSv5):
     # SOCKSv5 subclass
     # ---------------------------------------------    
     def connectRequested(self, addr, port):
-        print "Connect requested: ", addr
         # Check for special connect to the namespace -- this signifies that the client
         # is just checking to ensure it can connect to the streamhost
         if addr == "http://jabber.org/protocol/bytestreams":
@@ -159,73 +74,185 @@ class SOCKSv5Proxy(socks5.SOCKSv5):
         
         # Check to see if the requested address is already
         # activated -- send an error if so
-        if addr in _activeConns:
+        if self.service.isActive(addr):
             self.sendErrorReply(socks5.REPLY_CONN_NOT_ALLOWED)
             return
 
         # Add this address to the pending connections
-        olist = _pendingConns.get(addr, [])
-        if len(olist) <= 1:
-            olist.append(self)
-            _pendingConns[addr] = olist
+        if self.service.addConnection(addr):
             self.connectCompleted(addr, 0)
             self.transport.stopReading()
         else:
-            print "Already 2 pending conns"
             self.sendErrorReply(socks5.REPLY_CONN_REFUSED)
 
     def connectionLost(self, reason):
         if self.state == socks5.STATE_CONNECT_PENDING:
-            # Remove this object from pending conns; and remove
-            # the whole list from pending conns if this connection
-            # is the only one there
-            olist = _pendingConns[self.addr]
-            if len(olist) == 1:
-                del _pendingConns[self.addr]
-            else:
-                olist.remove(self)
-                _pendingConns[self.addr] = olist
+            self.service.removePendingConnection(self.addr, self)
         else:
             if self.peersock != None:
                 self.peersock.peersock = None
                 self.peersock.transport.loseConnection()
                 self.peersock = None
-                del _activeConns[self.addr]
+                self.service.removeActiveConnection(self.addr, self)
         
 
-if __name__ == "__main__":
-    _config = ConfigParser.ConfigParser()
-    _config.readfp(open("proxy65.cfg"))
+class Service(component.Service):
+    def __init__(self, serviceParent, config):
+        component.Service.__init__(self, config["jid"], serviceParent)
 
-    # Ensure we have all the necessary options -- there's probably
-    # a better way to do this?!
-    assert _config.has_option("jabber", "id")
-    assert _config.has_option("jabber", "secret")
-    assert _config.has_option("jabber", "routerhost")
-    assert _config.has_option("jabber", "routerport")
-    assert _config.has_option("proxy", "host")
-    assert _config.has_option("proxy", "port")
+        self.associateWithRouter(config["secret"], config["rhost"], config["rport"])
 
-    # Setup a component
-    _component = jabber.Component(_config.get("jabber", "routerhost"),
-                                  _config.getint("jabber", "routerport"),
-                                  _config.get("jabber", "id"),
-                                  _config.get("jabber", "secret"))
+        self.pendingConns = {}
+        self.activeConns = {}
 
-    _component.addObserver(jabber.STREAM_AUTHD_EVENT, onStreamAuthd)
-    _component.addObserver(jabber.STREAM_END_EVENT, onStreamEnd)
-    _component.addObserver("/iq[@type='get']/query[@xmlns='http://jabber.org/protocol/bytestreams']",
-                           onIQGet)    
-    _component.addObserver("/iq[@type='set']/query[@xmlns='http://jabber.org/protocol/bytestreams']/activate",
-                           onIQActivate)
-    _component.addObserver("/iq[@type='get']/query[@xmlns='http://jabber.org/protocol/disco#info']",
-                           onDiscoInfo)
+        # SOCKSv5 proxy objects
+        self.proxy = None
+        self.proxyPort = int(config["proxyport"])
+        self.proxyIP = config["proxyip"]
 
+    def buildProtocol(self, addr):
+        return JEP65Proxy(self)
 
-    # Go!
-    _component.run()
+    def configureEvents(self, factory):
+        factory.addBootstrap(JEP65_GET, self.onGetHostInfo)
+        factory.addBootstrap(DISCO_GET, self.onDisco)        
+        factory.addBootstrap(JEP65_ACTIVATE, self.onActivateStream)
+
+    def componentConnected(self):
+        self.proxy = reactor.listenTCP(self.proxyPort, self,
+                                       interface = self.proxyIP)
+
+    def componentDisconnected(self):
+        if self.proxy != None:
+            self.proxy.loseConnection()
 
 
+    def onGetHostInfo(self, iq):
+        iq.swapAttribs("to", "from")
+        iq["type"] = "result"
+        iq.query.children = []
+        s = iq.query.addElement("streamhost")
+        s["jid"] = self.jabberId
+        s["host"] = self.proxyIP
+        s["port"] = self.proxyPort
+        self.xmlstream.send(iq)
+
+    def onDisco(self, iq):
+        iq.swapAttribs("to", "from")
+        iq["type"] = "result"
+        iq.query.children = []
+        i = iq.query.addElement("identity")
+        i["category"] = "proxy"
+        i["type"] = "bytestreams"
+        i["name"] = "JEP-65 Proxy"
+        iq.query.addElement("feature")["var"] = "http://jabber.org/protocol/bytestreams"
+        self.xmlstream.send(iq)
 
 
+    def onActivateStream(self, iq):
+        sid = hashSID(iq.query["sid"], iq["from"], str(iq.query.activate))
+
+        if sid in self.pendingConns:
+            # Get list of objects for this sid
+            olist = self.pendingConns[sid]
+
+            # Remove sid from pending
+            del self.pendingConns[sid]
+
+            # Ensure there are the correct # of participants
+            if len(olist) != 2:
+                # Send an error
+                iq.swapAttribs("to", "from")
+                iq["type"] = "error"
+                iq.query.children = []
+                iq.query.addElement("error")["code"] = "405"
+                self.xmlstream.send(iq)
+                
+                # Close all connected
+                for c in olist: c.transport.loseConnection()
+                return
+
+            # Send iq result
+            iq.swapAttribs("to", "from")
+            iq["type"] = "result"
+            iq.query.children = []
+            self.xmlstream.send(iq)
+            
+            # Remove sid from pending and mark as active
+            assert sid not in self.activeConns
+            self.activeConns[sid] = None
+        
+            # Complete connection
+            olist[0].peersock = olist[1]
+            olist[1].peersock = olist[0]
+            olist[0].transport.startReading()
+            olist[1].transport.startReading()
+        else:
+            # Send an error
+            iq.swapAttribs("to", "from")
+            iq["type"] = "error"
+            iq.query.children = []
+            iq.query.addElement("error")["code"] = "404"
+            self.xmlstream.send(iq)
+
+    def isActive(self, address):
+        return address in self.activeConns
+
+    def addConnection(self, address, connection):
+        olist = self.pendingConns.get(address, [])
+        if len(olist) <= 1:
+            olist.append(connection)
+            self.pendingConns[address] = olist
+            return True
+        else:
+            return False
+
+    def removePendingConnection(self, address, connection):
+        olist = self.pendingConns[address]
+        if len(olist) == 1:
+            del self.pendingConns[address]
+        else:
+            olist.remove(connection)
+            self.pendingConns[address] = olist
+
+
+    def removeActiveConnection(self, address):
+        del self.activeConns[address]
+        
+
+class Options(usage.Options):
+    optParameters = [('jid', None, 'proxy65'),
+                     ('secret', None, None),
+                     ('rhost', None, '127.0.0.1'),
+                     ('rport', None, '6000'),
+
+                     ('proxyip', None, None),
+                     ('proxyport', None, '7777')]
+
+
+
+def updateApplication(ourApp, config):
+    # Check for parameters...
+    try:
+        int(config["rport"], 10)
+    except ValueError:
+        print "Invalid router port (--rport) provided."
+        sys.exit(-1)
+
+    try:
+        int(config["proxyport"], 10)
+    except (ValueError, TypeError):
+        print "Invalid proxy port (--proxyport) is required."
+        sys.exit(-1)
+
+    if config["secret"] == None:
+        print "Component secret (--secret) is a REQUIRED parameter."
+        sys.exit(-1)
+
+    if config["proxyip"] == None:
+        print "Proxy Network Address (--proxyip) is a REQUIRED parameter."
+        sys.exit(-1)
+        
+    svc = Service(ourApp, config)
+    
     
