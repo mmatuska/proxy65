@@ -25,8 +25,8 @@
 from twisted.internet import protocol, reactor
 from twisted.python import usage, log
 from twisted.protocols.jabber import component
-from twisted.application import app, service
-import sys
+from twisted.application import app, service, internet
+import sys, socket
 import socks5
 
 JEP65_GET      = "/iq[@type='get']/query[@xmlns='http://jabber.org/protocol/bytestreams']"
@@ -99,13 +99,10 @@ class Service(component.Service, protocol.Factory):
     def __init__(self, config):
         self.jid = config["jid"]
 
+        self.activeAddresses = []
+        self.listeners = None
         self.pendingConns = {}
         self.activeConns = {}
-
-        # SOCKSv5 proxy objects
-        self.proxy = None
-        self.proxyPort = int(config["proxyport"])
-        self.proxyIP = config["proxyip"]
 
     def buildProtocol(self, addr):
         return JEP65Proxy(self)
@@ -115,21 +112,20 @@ class Service(component.Service, protocol.Factory):
         xmlstream.addObserver(DISCO_GET, self.onDisco)
         xmlstream.addObserver(JEP65_ACTIVATE, self.onActivateStream)
 
-        self.proxy = reactor.listenTCP(self.proxyPort, self,
-                                       interface = self.proxyIP)
+        self.listeners.startService()
 
     def componentDisconnected(self):
-        if self.proxy != None:
-            self.proxy.loseConnection()
+        self.listeners.stopService()
 
     def onGetHostInfo(self, iq):
         iq.swapAttributeValues("to", "from")
         iq["type"] = "result"
         iq.query.children = []
-        s = iq.query.addElement("streamhost")
-        s["jid"] = self.jid
-        s["host"] = self.proxyIP
-        s["port"] = str(self.proxyPort)
+        for (ip, port) in self.activeAddresses:
+            s = iq.query.addElement("streamhost")
+            s["jid"] = self.jid
+            s["host"] = ip
+            s["port"] = str(port)
         self.send(iq)
 
     def onDisco(self, iq):
@@ -229,16 +225,15 @@ class Service(component.Service, protocol.Factory):
 
     def removeActiveConnection(self, address):
         del self.activeConns[address]
-        
+
 
 class Options(usage.Options):
     optParameters = [('jid', None, 'proxy65'),
                      ('secret', None, None),
                      ('rhost', None, '127.0.0.1'),
                      ('rport', None, '6000'),
+                     ('proxyips', None, None)]
 
-                     ('proxyip', None, None),
-                     ('proxyport', None, '7777')]
 
 
 
@@ -250,25 +245,54 @@ def makeService(config):
         print "Invalid router port (--rport) provided."
         sys.exit(-1)
 
-    try:
-        int(config["proxyport"], 10)
-    except (ValueError, TypeError):
-        print "Invalid proxy port (--proxyport) is required."
-        sys.exit(-1)
-
     if config["secret"] == None:
-        print "Component secret (--secret) is a REQUIRED parameter."
+        print "Component secret (--secret) is a REQUIRED parameter. Configuration aborted."
         sys.exit(-1)
 
-    if config["proxyip"] == None:
-        print "Proxy Network Address (--proxyip) is a REQUIRED parameter."
+    if config["proxyips"] == None:
+        print "Proxy Network Addresses (--proxyips) is a REQUIRED parameter. Configuration aborted."
         sys.exit(-1)
 
+    # Split and parse the addresses to ensure they are valid
+    addresses = config["proxyips"].split(",")
+    validAddresses = []
+    for a in addresses:
+        try:
+            ip = None
+            port = 7777
+            if ":" in a:
+                ip, port = a.split(":")
+            else:
+                ip = a
+            socket.inet_pton(socket.AF_INET, ip)            
+            validAddresses.append((ip, int(port)))
+        except socket.error:
+            print "Warning! Not using invalid proxy network address: ", a
+
+    # No valid addresses, no proxy65
+    if len(validAddresses) < 1:
+        print "0 Proxy Network Addresses (--proxyip) found. Configuration aborted."
+        sys.exit(-1)
+    
     c = component.buildServiceManager(config["jid"], config["secret"],
                                       ("tcp:%s:%s" % (config["rhost"], config["rport"])))
 
     proxySvc = Service(config)
     proxySvc.setServiceParent(c)
+
+    # Construct a multi service to hold all the listening
+    # services -- the main proxy65.Service object will then
+    # just use that to control when the system should be
+    # listening
+    listeners = service.MultiService()
+    for (ip,port) in validAddresses:
+        listener = internet.TCPServer(port, proxySvc, interface=ip)
+        listener.setServiceParent(listeners)
+
+    # Set the proxy services listeners variable with the
+    # new multiservice
+    proxySvc.listeners = listeners
+    proxySvc.activeAddresses = validAddresses
 
     return c
     
