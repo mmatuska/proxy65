@@ -127,7 +127,7 @@ class Service(component.Service, protocol.Factory):
         iq["type"] = "result"
         iq.query.children = []
         s = iq.query.addElement("streamhost")
-        s["jid"] = self.jabberId
+        s["jid"] = self.jid
         s["host"] = self.proxyIP
         s["port"] = str(self.proxyPort)
         self.send(iq)
