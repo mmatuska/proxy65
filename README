@@ -175,7 +175,7 @@ The parameters have the following meaning:
 
 So, type something like this:
 
-  mktap proxy65 --jid=proxy65.yourhostname.tld --secret=yourproxysecret --rhost=yourjabberdip rport=yourcomponentportnumber --proxyip=defaultnetworkIP --proxyport=7777
+  mktap proxy65 --jid=proxy65.yourhostname.tld --secret=yourproxysecret --rhost=yourjabberdip --rport=yourcomponentportnumber --proxyip=defaultnetworkIP --proxyport=7777
 
 Here is an example:
  
