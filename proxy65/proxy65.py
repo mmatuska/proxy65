@@ -23,7 +23,7 @@
 ##============================================================================
 
 from twisted.internet import protocol, reactor
-from twisted.python import usage
+from twisted.python import usage, log
 from twisted.protocols.jabber import component
 import sys
 import socks5
@@ -46,9 +46,6 @@ class JEP65Proxy(socks5.SOCKSv5):
         self.enabledCommands = [socks5.CMD_CONNECT]
         self.addr = ""
 
-    # ---------------------------------------------
-    # Producer methods -- Not yet enabled
-    # ---------------------------------------------
     def stopProducing(self):
         self.transport.loseConnection()
 
@@ -79,7 +76,7 @@ class JEP65Proxy(socks5.SOCKSv5):
             return
 
         # Add this address to the pending connections
-        if self.service.addConnection(addr):
+        if self.service.addConnection(addr, self):
             self.connectCompleted(addr, 0)
             self.transport.stopReading()
         else:
@@ -89,11 +86,12 @@ class JEP65Proxy(socks5.SOCKSv5):
         if self.state == socks5.STATE_CONNECT_PENDING:
             self.service.removePendingConnection(self.addr, self)
         else:
+            self.transport.unregisterProducer()
             if self.peersock != None:
                 self.peersock.peersock = None
-                self.peersock.transport.loseConnection()
+                self.peersock.transport.unregisterProducer()
                 self.peersock = None
-                self.service.removeActiveConnection(self.addr, self)
+                self.service.removeActiveConnection(self.addr)
         
 
 class Service(component.Service, protocol.Factory):
@@ -126,19 +124,19 @@ class Service(component.Service, protocol.Factory):
         if self.proxy != None:
             self.proxy.loseConnection()
 
-
     def onGetHostInfo(self, iq):
-        iq.swapAttribs("to", "from")
+        iq.swapAttributeValues("to", "from")
         iq["type"] = "result"
         iq.query.children = []
         s = iq.query.addElement("streamhost")
         s["jid"] = self.jabberId
         s["host"] = self.proxyIP
-        s["port"] = self.proxyPort
+        s["port"] = str(self.proxyPort)
         self.xmlstream.send(iq)
 
     def onDisco(self, iq):
-        iq.swapAttribs("to", "from")
+        print iq.toXml()
+        iq.swapAttributeValues("to", "from")
         iq["type"] = "result"
         iq.query.children = []
         i = iq.query.addElement("identity")
@@ -151,6 +149,7 @@ class Service(component.Service, protocol.Factory):
 
     def onActivateStream(self, iq):
         sid = hashSID(iq.query["sid"], iq["from"], str(iq.query.activate))
+        log.msg("Activation requested for: ", sid)
 
         if sid in self.pendingConns:
             # Get list of objects for this sid
@@ -161,8 +160,9 @@ class Service(component.Service, protocol.Factory):
 
             # Ensure there are the correct # of participants
             if len(olist) != 2:
+                log.msg("Activation for %s failed: insufficient participants", sid)
                 # Send an error
-                iq.swapAttribs("to", "from")
+                iq.swapAttributeValues("to", "from")
                 iq["type"] = "error"
                 iq.query.children = []
                 e = iq.addElement("error")
@@ -178,7 +178,7 @@ class Service(component.Service, protocol.Factory):
                 return
 
             # Send iq result
-            iq.swapAttribs("to", "from")
+            iq.swapAttributeValues("to", "from")
             iq["type"] = "result"
             iq.query.children = []
             self.xmlstream.send(iq)
@@ -188,13 +188,14 @@ class Service(component.Service, protocol.Factory):
             self.activeConns[sid] = None
         
             # Complete connection
+            log.msg("Activating ", sid)
             olist[0].peersock = olist[1]
             olist[1].peersock = olist[0]
-            olist[0].transport.startReading()
-            olist[1].transport.startReading()
+            olist[0].transport.registerProducer(olist[1], 0)
+            olist[1].transport.registerProducer(olist[0], 0)
         else:
             # Send an error
-            iq.swapAttribs("to", "from")
+            iq.swapAttributeValues("to", "from")
             iq["type"] = "error"
             iq.query.children = []
             e = iq.addElement("error")
@@ -209,6 +210,7 @@ class Service(component.Service, protocol.Factory):
         return address in self.activeConns
 
     def addConnection(self, address, connection):
+        log.msg("Adding connection: ", address, connection)
         olist = self.pendingConns.get(address, [])
         if len(olist) <= 1:
             olist.append(connection)
