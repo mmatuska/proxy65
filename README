@@ -3,7 +3,7 @@
 Code Author:   Dave Smith <dizzyd@jabber.org>
 Doc Author:    Peter Saint-Andre <stpeter@jabber.org>
 Doc Version:   1.0
-Last Updated:  2003-09-26
+Last Updated:  2004-05-20
 
 
 1. INTRODUCTION
@@ -17,9 +17,11 @@ definition of the functionality, please read JEP-0065:
 
 Proxy65 runs as an "external component": i.e., it uses the 
 over-the-wire API for server-side components documented in 
-JEP-0114. Therefore it should be usable with most Jabber 
-server implementations and is not limited to the jabberd 1.4
-server series.
+JEP-0114. Therefore it should work with most Jabber server 
+implementations and is not limited to the jabberd 1.4 server 
+series.
+
+This README documents version 1.0 of Proxy65.
 
 
 2. SOFTWARE REQUIREMENTS
@@ -29,19 +31,22 @@ framework:
 
   http://www.twistedmatrix.com/
 
-At a minimum, you MUST have Python 2.2 and Twisted 1.0.7 or 
-higher installed in order to run Proxy65. However, Python 2.3 
-and Twisted 1.0.8 or higher are recommended to ensure optimal
-performance.
+At a minimum, you MUST have Python 2.2 and Twisted 1.1.0 or 
+higher installed in order to run Proxy65. 
 
 
 3. INSTALLING PROXY65
+
+Unzip the Proxy65 code into your preferred directory (it does
+not need to be installed into your Jabber server directory); 
+this will create a proxy65/ subdirectory. Type 'cd proxy65' to 
+move to that directory.
 
 As root or using sudo, type the following at the command line:
 
   python setup.py install
 
-This should install the Python files you need into your Python
+This will install the Python files you need into your Python
 distribution.
 
 If you want to install Proxy65 somewhere else, refer to:
@@ -53,7 +58,9 @@ If you want to install Proxy65 somewhere else, refer to:
 
 Next, update your server configuration. In this README, we use
 a jabberd 1.4 XML file as our example, but you should be to add 
-the correct configuration to other servers as well. 
+the correct configuration to other servers as well (refer to the 
+documentation for your server of choice; remember that it must
+support the Jabber component protocol documented in JEP-0114).
 
 For jabberd 1.4, add an appropriate service line to the <browse> 
 section of your jabber.xml file's JSM config:
@@ -169,11 +176,11 @@ Now start your Jabber server, e.g., by running:
 
 You can now run your proxy server by typing:
 
-  twistd -no -f proxy65.tap
+  twistd -f proxy65.tap
 
   or:
 
-  twistd -f proxy65.tap
+  twistd -no -f proxy65.tap
 
 (The -no option prevents the application from daemonizing itself.
 Most server admins will want to run 'twistd -f proxy65.tap'.)
@@ -181,16 +188,37 @@ Most server admins will want to run 'twistd -f proxy65.tap'.)
 And voila! Proxy65 is running.
 
 
-6. GETTING HELP
+6. USAGE
+
+At present, the main use for Proxy65 is file transfer between 
+Jabber clients that are advanced enough to support the protocol
+defined in JEP-0096:
+
+   http://www.jabber.org/jeps/jep-0096.html
+
+Note: when specifying the Jabber address of your proxy, you MUST
+NOT include the port number. Jabber entities don't know anything
+about port numbers, and if you specify a port number in your fine
+new proxy's Jabber address, nothing will work and you will be 
+tremendously disappointed.
+
+File transfer is not the only use for Proxy65, although it is the
+only use defined so far. Because Proxy65 is really just a generic 
+bytestreaming proxy, it could be used for other applications (such 
+as voice over IP using a relatively light protocol such as Speex). 
+Look for more creative uses of Proxy65 in the future.
+
+
+7. GETTING HELP
 
 For help with Twisted, type 'man twistd'.
 
 For help with Proxy65, contact either of the addresses listed
 at the top of this README (use Jabber, you'll receive a faster 
-reply!).
+reply!), or join the <jdev@conference.jabber.org> chatroom.
 
 
-7. REQUESTING FEATURES AND REPORTING BUGS
+8. REQUESTING FEATURES AND REPORTING BUGS
 
 Follow the links at the project homepage:
 
