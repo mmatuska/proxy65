@@ -96,11 +96,11 @@ class JEP65Proxy(socks5.SOCKSv5):
                 self.service.removeActiveConnection(self.addr, self)
         
 
-class Service(component.Service):
+class Service(component.Service, protocol.Factory):
     def __init__(self, serviceParent, config):
         component.Service.__init__(self, config["jid"], serviceParent)
 
-        self.associateWithRouter(config["secret"], config["rhost"], config["rport"])
+        self.associateWithRouter(config["secret"], config["rhost"], int(config["rport"], 10))
 
         self.pendingConns = {}
         self.activeConns = {}
@@ -144,7 +144,7 @@ class Service(component.Service):
         i = iq.query.addElement("identity")
         i["category"] = "proxy"
         i["type"] = "bytestreams"
-        i["name"] = "JEP-65 Proxy"
+        i["name"] = "SOCKS5 Bytestreams Service"
         iq.query.addElement("feature")["var"] = "http://jabber.org/protocol/bytestreams"
         self.xmlstream.send(iq)
 
@@ -165,7 +165,12 @@ class Service(component.Service):
                 iq.swapAttribs("to", "from")
                 iq["type"] = "error"
                 iq.query.children = []
-                iq.query.addElement("error")["code"] = "405"
+                e = iq.addElement("error")
+                e["code"] = "405"
+                e["type"] = "cancel"
+                c = e.addElement("condition")
+                c["xmlns"] = "urn:ietf:params:xml:ns:xmpp-stanzas"
+                c.addElement("not-allowed")
                 self.xmlstream.send(iq)
                 
                 # Close all connected
@@ -192,7 +197,12 @@ class Service(component.Service):
             iq.swapAttribs("to", "from")
             iq["type"] = "error"
             iq.query.children = []
-            iq.query.addElement("error")["code"] = "404"
+            e = iq.addElement("error")
+            e["code"] = "404"
+            e["type"] = "cancel"
+            c = e.addElement("condition")
+            c["xmlns"] = "urn:ietf:params:xml:ns:xmpp-stanzas"
+            c.addElement("item-not-found")
             self.xmlstream.send(iq)
 
     def isActive(self, address):
@@ -253,6 +263,6 @@ def updateApplication(ourApp, config):
         print "Proxy Network Address (--proxyip) is a REQUIRED parameter."
         sys.exit(-1)
         
-    svc = Service(ourApp, config)
+    Service(ourApp, config)
     
     
