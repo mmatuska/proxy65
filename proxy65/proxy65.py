@@ -161,9 +161,8 @@ class Service(component.Service, protocol.Factory):
                 e = iq.addElement("error")
                 e["code"] = "405"
                 e["type"] = "cancel"
-                c = e.addElement("condition")
+                c = e.addElement("not-allowed")
                 c["xmlns"] = "urn:ietf:params:xml:ns:xmpp-stanzas"
-                c.addElement("not-allowed")
                 self.send(iq)
                 
                 # Close all connected
@@ -196,9 +195,8 @@ class Service(component.Service, protocol.Factory):
             e = iq.addElement("error")
             e["code"] = "404"
             e["type"] = "cancel"
-            c = e.addElement("condition")
+            c = e.addElement("item-not-found")
             c["xmlns"] = "urn:ietf:params:xml:ns:xmpp-stanzas"
-            c.addElement("item-not-found")
             self.send(iq)
 
     def isActive(self, address):
