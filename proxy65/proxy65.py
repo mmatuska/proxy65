@@ -17,7 +17,7 @@
 ##     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  021-1307
 ##     USA
 ##
-##     Copyright (C) 2002-2003 Dave Smith (dizzyd@jabber.org)
+##     Copyright (C) 2002-2004 Dave Smith (dizzyd@jabber.org)
 ##
 ## $Id$
 ##============================================================================
@@ -25,6 +25,7 @@
 from twisted.internet import protocol, reactor
 from twisted.python import usage, log
 from twisted.protocols.jabber import component
+from twisted.application import app, service
 import sys
 import socks5
 
@@ -95,10 +96,8 @@ class JEP65Proxy(socks5.SOCKSv5):
         
 
 class Service(component.Service, protocol.Factory):
-    def __init__(self, serviceParent, config):
-        component.Service.__init__(self, config["jid"], serviceParent)
-
-        self.associateWithRouter(config["secret"], config["rhost"], int(config["rport"], 10))
+    def __init__(self, config):
+        self.jid = config["jid"]
 
         self.pendingConns = {}
         self.activeConns = {}
@@ -111,12 +110,11 @@ class Service(component.Service, protocol.Factory):
     def buildProtocol(self, addr):
         return JEP65Proxy(self)
 
-    def configureEvents(self, factory):
-        factory.addBootstrap(JEP65_GET, self.onGetHostInfo)
-        factory.addBootstrap(DISCO_GET, self.onDisco)        
-        factory.addBootstrap(JEP65_ACTIVATE, self.onActivateStream)
+    def componentConnected(self, xmlstream):
+        xmlstream.addObserver(JEP65_GET, self.onGetHostInfo)
+        xmlstream.addObserver(DISCO_GET, self.onDisco)
+        xmlstream.addObserver(JEP65_ACTIVATE, self.onActivateStream)
 
-    def componentConnected(self):
         self.proxy = reactor.listenTCP(self.proxyPort, self,
                                        interface = self.proxyIP)
 
@@ -132,10 +130,9 @@ class Service(component.Service, protocol.Factory):
         s["jid"] = self.jabberId
         s["host"] = self.proxyIP
         s["port"] = str(self.proxyPort)
-        self.xmlstream.send(iq)
+        self.send(iq)
 
     def onDisco(self, iq):
-        print iq.toXml()
         iq.swapAttributeValues("to", "from")
         iq["type"] = "result"
         iq.query.children = []
@@ -144,7 +141,7 @@ class Service(component.Service, protocol.Factory):
         i["type"] = "bytestreams"
         i["name"] = "SOCKS5 Bytestreams Service"
         iq.query.addElement("feature")["var"] = "http://jabber.org/protocol/bytestreams"
-        self.xmlstream.send(iq)
+        self.send(iq)
 
 
     def onActivateStream(self, iq):
@@ -171,17 +168,19 @@ class Service(component.Service, protocol.Factory):
                 c = e.addElement("condition")
                 c["xmlns"] = "urn:ietf:params:xml:ns:xmpp-stanzas"
                 c.addElement("not-allowed")
-                self.xmlstream.send(iq)
+                self.send(iq)
                 
                 # Close all connected
-                for c in olist: c.transport.loseConnection()
+                for c in olist:
+                    c.transport.loseConnection()
+                    
                 return
 
             # Send iq result
             iq.swapAttributeValues("to", "from")
             iq["type"] = "result"
             iq.query.children = []
-            self.xmlstream.send(iq)
+            self.send(iq)
             
             # Remove sid from pending and mark as active
             assert sid not in self.activeConns
@@ -204,7 +203,7 @@ class Service(component.Service, protocol.Factory):
             c = e.addElement("condition")
             c["xmlns"] = "urn:ietf:params:xml:ns:xmpp-stanzas"
             c.addElement("item-not-found")
-            self.xmlstream.send(iq)
+            self.send(iq)
 
     def isActive(self, address):
         return address in self.activeConns
@@ -243,7 +242,7 @@ class Options(usage.Options):
 
 
 
-def updateApplication(ourApp, config):
+def makeService(config):
     # Check for parameters...
     try:
         int(config["rport"], 10)
@@ -264,7 +263,13 @@ def updateApplication(ourApp, config):
     if config["proxyip"] == None:
         print "Proxy Network Address (--proxyip) is a REQUIRED parameter."
         sys.exit(-1)
-        
-    Service(ourApp, config)
+
+    c = component.buildServiceManager(config["jid"], config["secret"],
+                                      ("tcp:%s:%s" % (config["rhost"], config["rport"])))
+
+    proxySvc = Service(config)
+    proxySvc.setServiceParent(c)
+
+    return c
     
     
