@@ -126,7 +126,7 @@ create a separate configuration file.
 First check to see that Twisted knows about your application by
 typing the following command:
 
-  mktap --help
+  mktap
 
 Your application (proxy65) should show up in the output list.
 
