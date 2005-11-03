@@ -2,8 +2,8 @@
 
 Code Author:   Dave Smith <dizzyd@jabber.org>
 Doc Author:    Peter Saint-Andre <stpeter@jabber.org>
-Doc Version:   1.0
-Last Updated:  2004-07-23
+Doc Version:   1.0.1
+Last Updated:  2005-11-03
 
 
 1. INTRODUCTION
@@ -32,8 +32,8 @@ framework:
   http://www.twistedmatrix.com/
 
 At a minimum, you MUST have Python 2.2 and Twisted 1.1.0 or 
-higher installed in order to run Proxy65. 
-
+higher installed in order to run Proxy65. The code from CVS
+should work with Twisted 2.x, if not ping stpeter@jabber.org!
 
 3. INSTALLING PROXY65
 
