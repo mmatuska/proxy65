@@ -152,8 +152,7 @@ You should see some nice help output:
       --secret=
       --rhost=      [default: 127.0.0.1]
       --rport=      [default: 6000]
-      --proxyip=
-      --proxyport=  [default: 7777]
+      --proxyips= 
       --version
       --help        Display this help and exit.
 
@@ -170,16 +169,20 @@ The parameters have the following meaning:
   --rhost       The IP address of your Jabber router (server).
   --rport       The port over which router-to-component traffic
                 will be sent.
-  --proxyip     The IP address used for SOCKS5 communications.
-  --proxyport   The port used for SOCKS5 communications.
+  --proxyips    The IP addresses and ports used for SOCKS5 
+                communications; you can supply more than one
+                by comma-separating the list. The address must
+                be an IP address (not a hostname) and the port
+                is specified by a colon (":") character and then
+                the port number. (The default port is 7777).
 
 So, type something like this:
 
-  mktap proxy65 --jid=proxy65.yourhostname.tld --secret=yourproxysecret --rhost=yourjabberdip --rport=yourcomponentportnumber --proxyip=defaultnetworkIP --proxyport=7777
+  mktap proxy65 --jid=proxy65.yourhostname.tld --secret=yourproxysecret --rhost=yourjabberdip --rport=yourcomponentportnumber --proxyips=defaultnetworkIP:someport
 
 Here is an example:
  
-  mktap proxy65 --jid=proxy65.localhost --secret=proxybaby --rhost=127.0.0.1 rport=7013 --proxyip=127.0.0.1 --proxyport=7777
+  mktap proxy65 --jid=proxy65.localhost --secret=proxybaby --rhost=127.0.0.1 rport=7013 --proxyips=127.0.0.1:7769
 
 You should now see a proxy.tap file in the directory where you
 built the component.
