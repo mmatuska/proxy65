@@ -269,7 +269,7 @@ def makeService(config):
 
     # No valid addresses, no proxy65
     if len(validAddresses) < 1:
-        print "0 Proxy Network Addresses (--proxyip) found. Configuration aborted."
+        print "0 Proxy Network Addresses (--proxyips) found. Configuration aborted."
         sys.exit(-1)
     
     c = component.buildServiceManager(config["jid"], config["secret"],
