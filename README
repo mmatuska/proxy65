@@ -184,7 +184,7 @@ Here is an example:
  
   mktap proxy65 --jid=proxy65.localhost --secret=proxybaby --rhost=127.0.0.1 rport=7013 --proxyips=127.0.0.1:7769
 
-You should now see a proxy.tap file in the directory where you
+You should now see a proxy65.tap file in the directory where you
 built the component.
 
 
