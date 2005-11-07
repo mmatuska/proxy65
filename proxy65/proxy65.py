@@ -141,7 +141,9 @@ class Service(component.Service, protocol.Factory):
 
 
     def onActivateStream(self, iq):
-        sid = hashSID(iq.query["sid"], iq["from"], str(iq.query.activate))
+        fromJID = jid.internJID(iq["from"])
+        activateJID = jid.internJID(iq.query.activate)
+        sid = hashSID(iq.query["sid"], fromJID, activateJID)
         log.msg("Activation requested for: ", sid)
 
         if sid in self.pendingConns:
