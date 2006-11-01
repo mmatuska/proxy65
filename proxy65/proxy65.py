@@ -141,8 +141,8 @@ class Service(component.Service, protocol.Factory):
 
 
     def onActivateStream(self, iq):
-        fromJID = jid.internJID(iq["from"])
-        activateJID = jid.internJID(iq.query.activate)
+        fromJID = jid.internJID(iq["from"]).full()
+        activateJID = jid.internJID(iq.query.activate).full()
         sid = hashSID(iq.query["sid"], fromJID, activateJID)
         log.msg("Activation requested for: ", sid)
 
