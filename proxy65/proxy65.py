@@ -24,7 +24,7 @@
 
 from twisted.internet import protocol, reactor
 from twisted.python import usage, log
-from twisted.words.protocols.jabber import component
+from twisted.words.protocols.jabber import component,jid
 from twisted.application import app, service, internet
 import sys, socket
 import socks5
