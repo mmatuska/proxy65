@@ -111,10 +111,13 @@ class Service(component.Service, protocol.Factory):
         xmlstream.addObserver(JEP65_GET, self.onGetHostInfo)
         xmlstream.addObserver(DISCO_GET, self.onDisco)
         xmlstream.addObserver(JEP65_ACTIVATE, self.onActivateStream)
-
+        
+        # we're connected, start the SOCKSv5 listeners
         self.listeners.startService()
+        
 
     def componentDisconnected(self):
+        
         self.listeners.stopService()
 
     def onGetHostInfo(self, iq):
@@ -141,12 +144,15 @@ class Service(component.Service, protocol.Factory):
 
 
     def onActivateStream(self, iq):
-        fromJID = jid.internJID(iq["from"]).full()
-        activateJID = jid.internJID(str(iq.query.activate)).full()
-        sid = hashSID(iq.query["sid"], fromJID, activateJID)
-        log.msg("Activation requested for: ", sid)
 
-        if sid in self.pendingConns:
+        try:
+            fromJID = jid.internJID(iq["from"]).full()
+            activateJID = jid.internJID(unicode(iq.query.activate)).full()
+            sid = hashSID(
+                iq.query["sid"].encode("utf-8"), fromJID.encode("utf-8"), activateJID.encode("utf-8")
+            )
+            log.msg("Activation requested for: ", sid)
+
             # Get list of objects for this sid
             olist = self.pendingConns[sid]
 
@@ -189,7 +195,8 @@ class Service(component.Service, protocol.Factory):
             olist[1].peersock = olist[0]
             olist[0].transport.registerProducer(olist[1], 0)
             olist[1].transport.registerProducer(olist[0], 0)
-        else:
+        except Exception, e:
+            # TODO report the detailed exception
             # Send an error
             iq.swapAttributeValues("to", "from")
             iq["type"] = "error"
@@ -233,8 +240,6 @@ class Options(usage.Options):
                      ('rhost', None, '127.0.0.1'),
                      ('rport', None, '6000'),
                      ('proxyips', None, None)]
-
-
 
 
 def makeService(config):
