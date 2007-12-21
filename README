@@ -1,9 +1,10 @@
 ### PROXY65 README ###
 
 Code Author:   Dave Smith <dizzyd@jabber.org>
+Maintainer:    Fabio Forno <mailto:ff@bluendo.com> <xmpp:ff@jabber.bluendo.com>
 Doc Author:    Peter Saint-Andre <stpeter@jabber.org>
-Doc Version:   1.0.1
-Last Updated:  2005-11-03
+Doc Version:   1.1.1
+Last Updated:  2007-12-21
 
 
 1. INTRODUCTION
@@ -21,7 +22,7 @@ JEP-0114. Therefore it should work with most Jabber server
 implementations and is not limited to the jabberd 1.4 server 
 series.
 
-This README documents version 1.0 of Proxy65.
+This README documents version 1.1 of Proxy65.
 
 
 2. SOFTWARE REQUIREMENTS
@@ -31,9 +32,13 @@ framework:
 
   http://www.twistedmatrix.com/
 
-At a minimum, you MUST have Python 2.2 and Twisted 1.1.0 or 
-higher installed in order to run Proxy65. The code from CVS
-should work with Twisted 2.x, if not ping stpeter@jabber.org!
+Other dependencies:
+
+  pyOpenSSL http://pyopenssl.sourceforge.net/
+
+At a minimum, you MUST have Python 2.4 and Twisted 2.4 or 
+higher installed in order to run Proxy65; if it doesn't work with
+this configuration ping xmpp:ff@jabber.bluendo.com
 
 3. INSTALLING PROXY65
 
@@ -136,8 +141,6 @@ two files:
   /usr/bin/mktap
   /usr/bin/twistd
 
-If they are hardcoded to python2.2 but you have python2.3 installed,
-change the python paths to point to "#!/usr/bin/python2.3".
 
 Next, type:
 
@@ -242,7 +245,7 @@ reply!), or join the <jdev@conference.jabber.org> chatroom.
 
 Follow the links at the project homepage:
 
-  http://proxy65.jabberstudio.org/
+  http://code.google.com/p/proxy65/
 
 Enjoy!
 
