@@ -2,7 +2,7 @@
 
 # Copyright (c) 2008 Fabio Forno
 
-from setuptools import setup
+from distutils.core import setup
 
 setup(name='Proxy65',
       version='1.1.0',
@@ -12,7 +12,6 @@ setup(name='Proxy65',
       maintainer_email='fabio.forno@gmail.com',
       url='http://code.google.com/p/proxy65',
       license='MIT',
-      platforms='any',
       packages=[
           'proxy65', 
           'twisted.plugins'

@@ -237,15 +237,6 @@ class Service(component.Service, protocol.Factory):
     def removeActiveConnection(self, address):
         del self.activeConns[address]
 
-
-class Options(usage.Options):
-    optParameters = [('jid', None, 'proxy65'),
-                     ('secret', None, None),
-                     ('rhost', None, '127.0.0.1'),
-                     ('rport', None, '6000'),
-                     ('proxyips', None, None)]
-
-
 def makeService(config):
     # Check for parameters...
     try:
