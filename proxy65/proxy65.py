@@ -3,7 +3,7 @@ License
 
 Copyright (C) 
 2002-2004   Dave Smith (dizzyd@jabber.org)
-2007        Fabio Forno (xmpp:ff@jabber.bluendo.com)
+2007-2008   Fabio Forno (xmpp:ff@jabber.bluendo.com)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

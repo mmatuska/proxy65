@@ -3,8 +3,8 @@
 Code Author:   Dave Smith <dizzyd@jabber.org>
 Maintainer:    Fabio Forno <mailto:ff@bluendo.com> <xmpp:ff@jabber.bluendo.com>
 Doc Author:    Peter Saint-Andre <stpeter@jabber.org>
-Doc Version:   1.1.1
-Last Updated:  2007-12-21
+Doc Version:   1.2.9
+Last Updated:  2008-11-22
 
 
 1. INTRODUCTION
@@ -36,11 +36,16 @@ Other dependencies:
 
   pyOpenSSL http://pyopenssl.sourceforge.net/
 
-At a minimum, you MUST have Python 2.4 and Twisted 2.4 or 
+At a minimum, you MUST have Python 2.5 and Twisted 8.0 or 
 higher installed in order to run Proxy65; if it doesn't work with
 this configuration ping xmpp:ff@jabber.bluendo.com
 
 3. INSTALLING PROXY65
+
+ *** IMPORTANT NOTE FOR UPGRADES ***
+ If you are upgrading from a previous version of Proxy65 you must delete
+ the proxy65.* files in your twisted/plugins directory before proceeding
+ to the installation
 
 Unzip the Proxy65 code into your preferred directory (it does
 not need to be installed into your Jabber server directory); 
@@ -121,35 +126,31 @@ With jabberd 2.x, you can simply connect to the router's IP
 address with the "legacy" password that is configured in the
 router.xml file.
 
-5. CONFIGURING PROXY65
+5. RUNNING PROXY65
 
-The next step is to create a "Twisted Application Pickle", commonly
-referred to as a TAP. A TAP is a file that holds configuration 
-information for a Twisted application, so that you do not need to
-create a separate configuration file.
+Since version 1.2.0 Proxy65 is directly started as a "Twisted Application 
+Plugin", which is started by using the twistd command. TAP files are no more 
+supported since they are now deprecated.
 
 First check to see that Twisted knows about your application by
 typing the following command:
 
-  mktap
+  twistd
 
 Your application (proxy65) should show up in the output list.
 
-If Proxy65 does not show up, check the python path in the following
-two files:
+If Proxy65 does not show up, check the python path in the following files and check your Twisted Matrix installation:
 
-  /usr/bin/mktap
   /usr/bin/twistd
-
 
 Next, type:
 
-  mktap proxy65 --help
+  twistd proxy65 --help
 
 You should see some nice help output:
 
-  # mktap proxy65 --help
-  Usage:    mktap [options] <command> [command options]
+  # twistd proxy65 --help
+  Usage:    twistd [options] proxy65 [command options]
   Options:
       --jid=        [default: proxy65]
       --secret=
@@ -159,9 +160,8 @@ You should see some nice help output:
       --version
       --help        Display this help and exit.
 
-Now you can run the 'mktap' command. This will generate the TAP
-so that you don't have pass arguments to Proxy65 on the command
-line whenever you want to start it.
+In order to start Proxy65 just run the 'twistd' command with the appropriate 
+parameters.
 
 The parameters have the following meaning:
 
@@ -181,32 +181,11 @@ The parameters have the following meaning:
 
 So, type something like this:
 
-  mktap proxy65 --jid=proxy65.yourhostname.tld --secret=yourproxysecret --rhost=yourjabberdip --rport=yourcomponentportnumber --proxyips=defaultnetworkIP:someport
+  twistd proxy65 --jid=proxy65.yourhostname.tld --secret=yourproxysecret --rhost=yourjabberdip --rport=yourcomponentportnumber --proxyips=defaultnetworkIP:someport
 
 Here is an example:
  
-  mktap proxy65 --jid=proxy65.localhost --secret=proxybaby --rhost=127.0.0.1 rport=7013 --proxyips=127.0.0.1:7769
-
-You should now see a proxy65.tap file in the directory where you
-built the component.
-
-
-6. RUNNING PROXY65
-
-Now start your Jabber server, e.g., by running:
-
-  ./jabberd/jabberd -D
-
-You can now run your proxy server by typing:
-
-  twistd -f proxy65.tap
-
-  or:
-
-  twistd -no -f proxy65.tap
-
-(The -no option prevents the application from daemonizing itself.
-Most server admins will want to run 'twistd -f proxy65.tap'.)
+  twistd proxy65 --jid=proxy65.localhost --secret=proxybaby --rhost=127.0.0.1 rport=7013 --proxyips=127.0.0.1:7769
 
 And voila! Proxy65 is running.
 

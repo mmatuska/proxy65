@@ -5,7 +5,7 @@
 from distutils.core import setup
 
 setup(name='Proxy65',
-      version='1.1.0',
+      version='1.2.0',
       description='XEP 65 Bytestream Proxy Component',
       author='Dave Smith, Fabio Forno',
       author_email='fabio.forno@gmail.com',
@@ -18,3 +18,14 @@ setup(name='Proxy65',
       ],
       package_data={'twisted.plugins': ['twisted/plugins/proxy65.py']}
 )
+
+# regenerate the plugin cache with the correct permissions
+from twisted.plugin import getPlugins
+from twisted.plugin import IPlugin
+
+try:
+    for plugin in getPlugins(IPlugin):
+        pass
+except:
+    pass
+
