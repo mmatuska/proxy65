@@ -26,7 +26,9 @@ $Id$
 """
 
 from twisted.internet import protocol, reactor
+from twisted.protocols.policies import TimeoutMixin
 import struct
+import time
 
 STATE_INITIAL = 0
 STATE_AUTH    = 1
@@ -78,7 +80,10 @@ class SOCKSv5Outgoing(protocol.Protocol):
     def dataReceived(self, buf):
         self.peersock.transport.write(buf)
 
-class SOCKSv5(protocol.Protocol):
+class SOCKSv5(protocol.Protocol, TimeoutMixin):
+
+    inputTimeout = 60
+
     def __init__(self):
         self.state = STATE_INITIAL
         self.buf = ""
@@ -190,7 +195,6 @@ class SOCKSv5(protocol.Protocol):
         except struct.error, why:
             return None
 
-
     def connectRequested(self, addr, port):
         self.transport.stopReading()
         self.state = STATE_CONNECT_PENDING
@@ -212,8 +216,13 @@ class SOCKSv5(protocol.Protocol):
     def authenticateUserPass(self, user, passwd):
         print "User/pass: ", user, passwd
         return True
+    
+    def connectionMade(self):
+        self.setTimeout(self.inputTimeout)
 
     def dataReceived(self, buf):
+        self.resetTimeout()
+
         if self.state == STATE_READY:
             self.peersock.transport.write(buf)
             return
@@ -225,8 +234,11 @@ class SOCKSv5(protocol.Protocol):
             self._parseUserPass()
         if self.state == STATE_REQUEST:
             self._parseRequest()
-
-
+    
+    def timeoutConnection(self):
+        self.transport.unregisterProducer()
+        self.transport.loseConnection()
+        
 
 factory = protocol.Factory()
 factory.protocol = SOCKSv5

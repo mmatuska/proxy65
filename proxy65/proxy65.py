@@ -37,6 +37,8 @@ JEP65_GET      = "/iq[@type='get']/query[@xmlns='http://jabber.org/protocol/byte
 JEP65_ACTIVATE = "/iq[@type='set']/query[@xmlns='http://jabber.org/protocol/bytestreams']/activate"
 DISCO_GET      = "/iq[@type='get']/query[@xmlns='http://jabber.org/protocol/disco#info']"
 
+class UnauthorizedException(Exception):
+    pass
 
 def hashSID(sid, initiator, target):
     import sha
@@ -88,6 +90,7 @@ class JEP65Proxy(socks5.SOCKSv5):
             self.sendErrorReply(socks5.REPLY_CONN_REFUSED)
 
     def connectionLost(self, reason):
+        socks5.SOCKSv5.connectionLost(self, reason)
         if self.state == socks5.STATE_CONNECT_PENDING:
             self.service.removePendingConnection(self.addr, self)
         else:
@@ -102,7 +105,11 @@ class JEP65Proxy(socks5.SOCKSv5):
 class Service(component.Service, protocol.Factory):
     def __init__(self, config):
         self.jid = config["jid"]
-
+        domains = config.get("allowed_domains")
+        if domains:
+            self.allowed_domains = domaind.split(",")
+        else:
+            self.allowed_domains = []
         self.activeAddresses = []
         self.listeners = None
         self.pendingConns = {}
@@ -150,10 +157,15 @@ class Service(component.Service, protocol.Factory):
     def onActivateStream(self, iq):
 
         try:
-            fromJID = jid.internJID(iq["from"]).full()
+            fromJID = jid.internJID(iq["from"])
+            
+            # check the sender is authorized
+            if self.allowed_domains and fromJID.host not in self.allowed_domains:
+                raise UnauthorizedException
+            
             activateJID = jid.internJID(unicode(iq.query.activate)).full()
             sid = hashSID(
-                iq.query["sid"].encode("utf-8"), fromJID.encode("utf-8"), activateJID.encode("utf-8")
+                iq.query["sid"].encode("utf-8"), fromJID.full().encode("utf-8"), activateJID.encode("utf-8")
             )
             log.msg("Activation requested for: ", sid)
 
@@ -166,23 +178,8 @@ class Service(component.Service, protocol.Factory):
             # Ensure there are the correct # of participants
             if len(olist) != 2:
                 log.msg("Activation for %s failed: insufficient participants", sid)
-                # Send an error
-                iq.swapAttributeValues("to", "from")
-                iq["type"] = "error"
-                iq.query.children = []
-                e = iq.addElement("error")
-                e["code"] = "405"
-                e["type"] = "cancel"
-                c = e.addElement("not-allowed")
-                c["xmlns"] = "urn:ietf:params:xml:ns:xmpp-stanzas"
-                self.send(iq)
-                
-                # Close all connected
-                for c in olist:
-                    c.transport.loseConnection()
-                    
-                return
-
+                raise UnauthorizedException
+                   
             # Send iq result
             iq.swapAttributeValues("to", "from")
             iq["type"] = "result"
@@ -199,6 +196,22 @@ class Service(component.Service, protocol.Factory):
             olist[1].peersock = olist[0]
             olist[0].transport.registerProducer(olist[1], 0)
             olist[1].transport.registerProducer(olist[0], 0)
+        except UnauthorizedException, e:
+            # Send an error
+            iq.swapAttributeValues("to", "from")
+            iq["type"] = "error"
+            iq.query.children = []
+            e = iq.addElement("error")
+            e["code"] = "405"
+            e["type"] = "cancel"
+            c = e.addElement("not-allowed")
+            c["xmlns"] = "urn:ietf:params:xml:ns:xmpp-stanzas"
+            self.send(iq)
+                
+            # Close all connected
+            for c in olist:
+                c.transport.loseConnection()
+             
         except Exception, e:
             # TODO report the detailed exception
             # Send an error
