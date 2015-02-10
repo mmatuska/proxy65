@@ -3,9 +3,10 @@
 Code Author:   Dave Smith <dizzyd@jabber.org>
 Maintainer:    Fabio Forno <mailto:ff@bluendo.com> <xmpp:ff@jabber.bluendo.com>
 Doc Author:    Peter Saint-Andre <stpeter@jabber.org>
-Doc Version:   1.2.9
-Last Updated:  2008-11-22
+Doc Version:   1.2.10
+Last Updated:  2015-02-10
 
+Last Changes By: Martin Matuska <martin@matuska.org>
 
 1. INTRODUCTION
 
@@ -150,42 +151,47 @@ Next, type:
 You should see some nice help output:
 
   # twistd proxy65 --help
-  Usage:    twistd [options] proxy65 [command options]
+  Usage: twistd [options] proxy65 [options]
   Options:
-      --jid=        [default: proxy65]
-      --secret=
-      --rhost=      [default: 127.0.0.1]
-      --rport=      [default: 6000]
-      --proxyips= 
-      --version
-      --help        Display this help and exit.
+    -c, --config=  Settings file
+    -h, --jid=     JID [default: proxy65]
+        --version  Display Twisted version and exit.
+        --help     Display this help and exit.
 
 In order to start Proxy65 just run the 'twistd' command with the appropriate 
 parameters.
 
 The parameters have the following meaning:
 
-  --jid         The JID of your Proxy65 service, just as it is 
+  -c --config   The configuration file containing secret, rhost, rport
+                and proxyips parameters
+  -j --jid      The JID of your Proxy65 service, just as it is
                 in your jabber.xml file or other config.
-  --secret      The secret password used between your Jabber
+
+Configuration file example:
+[proxy65]
+rhost = 127.0.0.1
+rport = 6000
+secret = changeme
+proxyips = 0.0.0.0:7777
+
+Configuration file parameters:
+  [section]	Must match the JID of your service (-j --jid)
+  secret        The secret password used between your Jabber
                 server and your Proxy65 component.
-  --rhost       The IP address of your Jabber router (server).
-  --rport       The port over which router-to-component traffic
+  rhost         The IP address of your Jabber router (server).
+  rport         The port over which router-to-component traffic
                 will be sent.
-  --proxyips    The IP addresses and ports used for SOCKS5 
+  proxyips      The IP addresses and ports used for SOCKS5 
                 communications; you can supply more than one
                 by comma-separating the list. The address must
                 be an IP address (not a hostname) and the port
                 is specified by a colon (":") character and then
                 the port number. (The default port is 7777).
 
-So, type something like this:
+So, create a configuration file and type something like this:
 
-  twistd proxy65 --jid=proxy65.yourhostname.tld --secret=yourproxysecret --rhost=yourjabberdip --rport=yourcomponentportnumber --proxyips=defaultnetworkIP:someport
-
-Here is an example:
- 
-  twistd proxy65 --jid=proxy65.localhost --secret=proxybaby --rhost=127.0.0.1 rport=7013 --proxyips=127.0.0.1:7769
+  twistd proxy65 --jid=proxy65.yourhostname.tld --config=/etc/proxy65.ini
 
 And voila! Proxy65 is running.
 
