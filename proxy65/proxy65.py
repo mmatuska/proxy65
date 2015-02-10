@@ -32,6 +32,7 @@ from twisted.words.protocols.jabber import component,jid
 from twisted.application import app, service, internet
 import sys, socket
 import socks5
+import ConfigParser
 
 JEP65_GET      = "/iq[@type='get']/query[@xmlns='http://jabber.org/protocol/bytestreams']"
 JEP65_ACTIVATE = "/iq[@type='set']/query[@xmlns='http://jabber.org/protocol/bytestreams']/activate"
@@ -252,18 +253,28 @@ class Service(component.Service, protocol.Factory):
 
 def makeService(config):
     # Check for parameters...
+    if config["config"] == None:
+        print "Configuration file (-c, --config) is a REQUIRED parameter. Configuration aborted."
+        sys.exit(-1)
+
+    cfg = ConfigParser.ConfigParser();
+    cfg.read(config["config"])
+
+    if not cfg.has_section(config["jid"]):
+        print "Section " + config["jid"] + " not found in configuration file. Aborting."
+        sys.exit(-1)
+
+    for o in ['rhost', 'rport', 'secret', 'proxyips']:
+        if cfg.has_option(config["jid"], o):
+            config[o] = cfg.get(config["jid"], o)
+        else:
+            print "Required option " + o + " not found in configuration file. Aborting."
+            sys.exit(-1)
+
     try:
         int(config["rport"], 10)
     except ValueError:
-        print "Invalid router port (--rport) provided."
-        sys.exit(-1)
-
-    if config["secret"] == None:
-        print "Component secret (--secret) is a REQUIRED parameter. Configuration aborted."
-        sys.exit(-1)
-
-    if config["proxyips"] == None:
-        print "Proxy Network Addresses (--proxyips) is a REQUIRED parameter. Configuration aborted."
+        print "Invalid router port (rport) provided."
         sys.exit(-1)
 
     # Split and parse the addresses to ensure they are valid
@@ -284,7 +295,7 @@ def makeService(config):
 
     # No valid addresses, no proxy65
     if len(validAddresses) < 1:
-        print "0 Proxy Network Addresses (--proxyips) found. Configuration aborted."
+        print "0 Proxy Network Addresses (proxyips) found. Configuration aborted."
         sys.exit(-1)
     
     c = component.buildServiceManager(config["jid"], config["secret"],

@@ -34,11 +34,10 @@ from twisted.application.service import IServiceMaker
 from proxy65 import proxy65
 
 class Options(usage.Options):
-    optParameters = [('jid', None, 'proxy65'),
-                     ('secret', None, None),
-                     ('rhost', None, '127.0.0.1'),
-                     ('rport', None, '6000'),
-                     ('proxyips', None, None)]
+    optParameters = [
+        ['config', 'c', None, 'Settings file'],
+        ['jid', 'h', 'proxy65', 'JID' ]
+    ]
 
 
 class Proxy65ServiceMaker(object):
